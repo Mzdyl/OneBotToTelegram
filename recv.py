@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import configparser
 from websockets import connect
 from telegram import Bot
 from typing import Dict, Any
@@ -11,22 +12,21 @@ from typing import Dict, Any
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# 读取配置文件
+config = configparser.ConfigParser()
+config.read('.config')
+
 # Telegram 机器人 Token 和聊天 ID（建议使用环境变量或配置文件来存储这些信息）
-TELEGRAM_BOT_TOKEN = ''
-TELEGRAM_CHAT_ID = ''
+TELEGRAM_BOT_TOKEN = config['telegram']['bot_token']
+TELEGRAM_CHAT_ID = config['telegram']['chat_id']
 
 # 初始化 Telegram 机器人
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
 # OneBot WebSocket 服务器列表
-ONEBOT_WS_URLS = [
-    "ws://",
-    "ws://"
-]
-BOT_NAME =  {
-    1111111111:"姓名",
-    1111111111:"姓名"
-}
+ONEBOT_WS_URLS = config['onebot']['ws_urls'].split(',')
+
+BOT_NAME = {int(key): value for key, value in config['bot_names'].items()}
 
 # 忽略的消息类型列表
 IGNORE_TYPES = ["heartbeat", "lifecycle"]
@@ -133,7 +133,7 @@ def format_message_content(raw_message: str, message_elements: list) -> str:
     """格式化消息内容（处理图片、表情等）"""
     # 初始化消息内容
 #   formatted_message = f"原始信息:\n{raw_message}\n"
-    formatted_message = f"转换前信息:\n{message_elements}\n转换后后信息:"
+    formatted_message = f"转换前信息:\n{message_elements}\n转换后后信息:\n"
     # 处理消息段
     for element in message_elements:
         element_type = element.get("type")
