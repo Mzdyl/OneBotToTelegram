@@ -326,11 +326,15 @@ async def get_version_info(update: Update, context: CallbackContext):
 
     await get_info("get_version_info", {}, ws_url, update)
 
+
 async def get_info(action: str, params: dict, ws_url: str, update: Update):
     """获取信息"""
     logger.info(f"尝试连接到 OneBot WebSocket 服务器: {ws_url}")
     try:
         async with connect(ws_url) as websocket:
+            # 确保连接成功
+#           await asyncio.sleep(1)  # 等待连接建立
+            
             get_data = {
                 "action": action,
                 "params": params,
@@ -338,11 +342,29 @@ async def get_info(action: str, params: dict, ws_url: str, update: Update):
             }
             logger.info(f"发送数据到 OneBot: {json.dumps(get_data)}")
             await websocket.send(json.dumps(get_data))
-            response = await websocket.recv()
-            logger.info(f"OneBot 回复: {response}")
-            await update.message.reply_text(f"OneBot 回复: {response}")
+            
+            # 收到连接确认
+            while True:
+                response = await websocket.recv()
+                response_data = json.loads(response)
+                
+                # 处理生命周期事件
+                if response_data.get("post_type") == "meta_event" and response_data.get("meta_event_type") == "lifecycle":
+                    logger.info(f"连接生命周期事件: {response_data}")
+                    if response_data.get("sub_type") == "connect":
+                        logger.info("连接已建立，等待实际响应...")
+                    continue  # 继续接收下一个消息
+                
+                # 处理实际响应
+                logger.info(f"OneBot 回复: {response_data}")
+                await update.message.reply_text(f"OneBot 回复: {response_data}")
+                break
+            
+    except asyncio.TimeoutError:
+        logger.error("请求超时")
     except Exception as e:
         logger.error(f"获取信息时发生错误: {e}")
+        
 
 async def start(update: Update, context: CallbackContext):
     """发送欢迎消息"""
@@ -351,7 +373,6 @@ async def start(update: Update, context: CallbackContext):
                                    "`/delete <backend> <chat_id> <message_id>` 删除消息\n"
                                    "`/get <backend> <chat_id> <message_id>` 获取消息\n"
                                    "`/forward <source_chat_id> <dest_chat_id> <message_id>` 转发消息\n"
-                                   "`/status` 查看 Bot 状态\n"
                                    "`/get_login_info <backend>` 获取登录号信息\n"
                                    "`/get_stranger_info <user_id> <backend>` 获取陌生人信息\n"
                                    "`/get_friend_list <backend>` 获取好友列表\n"
@@ -395,3 +416,4 @@ def main():
     
 if __name__ == "__main__":
     asyncio.run(main())
+    
