@@ -162,17 +162,14 @@ async def send(update: Update, context: CallbackContext):
 
     backend = args[0].strip()
     target_id = args[1].strip()
-    message_content = " ".join(args[2:]).strip()
+    message_content = ' '.join(args[2:]).strip()
 
     ws_url = ONEBOT_WS_URLS.get(backend)
     if not ws_url:
         await update.message.reply_text("无效的后端选择。请使用 `backend1` 或 `backend2`。")
         return
 
-    if not (target_id.startswith("group_") or target_id.startswith("user_")):
-        await update.message.reply_text("目标 ID 必须以 'group_' 或 'user_' 开头。")
-        return
-
+    # 检查是否有媒体文件
     media_type = None
     media_url = None
     if update.message.photo:
@@ -192,30 +189,182 @@ async def send(update: Update, context: CallbackContext):
     await send_to_onebot_with_retries(target_id, message_content, media_type, media_url, ws_url)
     await update.message.reply_text(f"消息已发送到 {target_id}")
 
-async def handle_message(update: Update, context: CallbackContext):
-    """处理 Telegram 消息并转发到所选的 OneBot 后端"""
-    # Handle the /send command separately
+async def get_login_info(update: Update, context: CallbackContext):
+    """获取登录号信息"""
+    backend = context.args[0].strip()
+    ws_url = ONEBOT_WS_URLS.get(backend)
+    if not ws_url:
+        await update.message.reply_text("无效的后端选择。")
+        return
+
+    await get_info("get_login_info", {}, ws_url, update)
+
+async def get_stranger_info(update: Update, context: CallbackContext):
+    """获取陌生人信息"""
+    user_id = context.args[0].strip()
+    backend = context.args[1].strip()
+    ws_url = ONEBOT_WS_URLS.get(backend)
+    if not ws_url:
+        await update.message.reply_text("无效的后端选择。")
+        return
+
+    await get_info("get_stranger_info", {"user_id": user_id}, ws_url, update)
+
+async def get_friend_list(update: Update, context: CallbackContext):
+    """获取好友列表"""
+    backend = context.args[0].strip()
+    ws_url = ONEBOT_WS_URLS.get(backend)
+    if not ws_url:
+        await update.message.reply_text("无效的后端选择。")
+        return
+
+    await get_info("get_friend_list", {}, ws_url, update)
+
+async def get_group_info(update: Update, context: CallbackContext):
+    """获取群信息"""
+    group_id = context.args[0].strip()
+    backend = context.args[1].strip()
+    ws_url = ONEBOT_WS_URLS.get(backend)
+    if not ws_url:
+        await update.message.reply_text("无效的后端选择。")
+        return
+
+    await get_info("get_group_info", {"group_id": group_id}, ws_url, update)
+
+async def get_group_list(update: Update, context: CallbackContext):
+    """获取群列表"""
+    backend = context.args[0].strip()
+    ws_url = ONEBOT_WS_URLS.get(backend)
+    if not ws_url:
+        await update.message.reply_text("无效的后端选择。")
+        return
+
+    await get_info("get_group_list", {}, ws_url, update)
+
+async def get_group_member_info(update: Update, context: CallbackContext):
+    """获取群成员信息"""
+    group_id = context.args[0].strip()
+    user_id = context.args[1].strip()
+    backend = context.args[2].strip()
+    ws_url = ONEBOT_WS_URLS.get(backend)
+    if not ws_url:
+        await update.message.reply_text("无效的后端选择。")
+        return
+
+    await get_info("get_group_member_info", {"group_id": group_id, "user_id": user_id}, ws_url, update)
+
+async def get_group_member_list(update: Update, context: CallbackContext):
+    """获取群成员列表"""
+    group_id = context.args[0].strip()
+    backend = context.args[1].strip()
+    ws_url = ONEBOT_WS_URLS.get(backend)
+    if not ws_url:
+        await update.message.reply_text("无效的后端选择。")
+        return
+
+    await get_info("get_group_member_list", {"group_id": group_id}, ws_url, update)
+
+async def get_record(update: Update, context: CallbackContext):
+    """获取语音"""
+    record_id = context.args[0].strip()
+    backend = context.args[1].strip()
+    ws_url = ONEBOT_WS_URLS.get(backend)
+    if not ws_url:
+        await update.message.reply_text("无效的后端选择。")
+        return
+
+    await get_info("get_record", {"record_id": record_id}, ws_url, update)
+
+async def get_image(update: Update, context: CallbackContext):
+    """获取图片"""
+    image_id = context.args[0].strip()
+    backend = context.args[1].strip()
+    ws_url = ONEBOT_WS_URLS.get(backend)
+    if not ws_url:
+        await update.message.reply_text("无效的后端选择。")
+        return
+
+    await get_info("get_image", {"image_id": image_id}, ws_url, update)
+
+async def can_send_image(update: Update, context: CallbackContext):
+    """检查是否可以发送图片"""
+    backend = context.args[0].strip()
+    ws_url = ONEBOT_WS_URLS.get(backend)
+    if not ws_url:
+        await update.message.reply_text("无效的后端选择。")
+        return
+
+    await get_info("can_send_image", {}, ws_url, update)
+
+async def can_send_record(update: Update, context: CallbackContext):
+    """检查是否可以发送语音"""
+    backend = context.args[0].strip()
+    ws_url = ONEBOT_WS_URLS.get(backend)
+    if not ws_url:
+        await update.message.reply_text("无效的后端选择。")
+        return
+
+    await get_info("can_send_record", {}, ws_url, update)
+
+async def get_status(update: Update, context: CallbackContext):
+    """获取运行状态"""
+    backend = context.args[0].strip()
+    ws_url = ONEBOT_WS_URLS.get(backend)
+    if not ws_url:
+        await update.message.reply_text("无效的后端选择。")
+        return
+
+    await get_info("get_status", {}, ws_url, update)
+
+async def get_version_info(update: Update, context: CallbackContext):
+    """获取版本信息"""
+    backend = context.args[0].strip()
+    ws_url = ONEBOT_WS_URLS.get(backend)
+    if not ws_url:
+        await update.message.reply_text("无效的后端选择。")
+        return
+
+    await get_info("get_version_info", {}, ws_url, update)
+
+async def get_info(action: str, params: dict, ws_url: str, update: Update):
+    """获取信息"""
+    logger.info(f"尝试连接到 OneBot WebSocket 服务器: {ws_url}")
+    try:
+        async with connect(ws_url) as websocket:
+            get_data = {
+                "action": action,
+                "params": params,
+                "echo": "unique_id"
+            }
+            logger.info(f"发送数据到 OneBot: {json.dumps(get_data)}")
+            await websocket.send(json.dumps(get_data))
+            response = await websocket.recv()
+            logger.info(f"OneBot 回复: {response}")
+            await update.message.reply_text(f"OneBot 回复: {response}")
+    except Exception as e:
+        logger.error(f"获取信息时发生错误: {e}")
 
 async def start(update: Update, context: CallbackContext):
     """发送欢迎消息"""
-    await update.message.reply_text("Bot 已启动。使用 `/send <backend> <chat_id> <message>` 命令来发送消息。\n"
-                                   "使用 `/delete <backend> <chat_id> <message_id>` 删除消息。\n"
-                                   "使用 `/get <backend> <chat_id> <message_id>` 获取消息。\n"
-                                   "使用 `/forward <source_chat_id> <dest_chat_id> <message_id>` 转发消息。\n"
-                                   "`/status` 查看 Bot 状态")
-
-async def status(update: Update, context: CallbackContext):
-    """显示 Bot 当前状态"""
-    status_text = (
-        "Bot 正在运行。\n"
-        "支持的命令:\n"
-        "`/send <backend> <chat_id> <message>` 发送消息\n"
-        "`/delete <backend> <chat_id> <message_id>` 删除消息\n"
-        "`/get <backend> <chat_id> <message_id>` 获取消息\n"
-        "`/forward <source_chat_id> <dest_chat_id> <message_id>` 转发消息\n"
-        "`/status` 查看 Bot 状态"
-    )
-    await update.message.reply_text(status_text)
+    await update.message.reply_text("Bot 已启动。使用以下命令：\n"
+                                   "`/send <backend> <chat_id> <message>` 发送消息\n"
+                                   "`/delete <backend> <chat_id> <message_id>` 删除消息\n"
+                                   "`/get <backend> <chat_id> <message_id>` 获取消息\n"
+                                   "`/forward <source_chat_id> <dest_chat_id> <message_id>` 转发消息\n"
+                                   "`/status` 查看 Bot 状态\n"
+                                   "`/get_login_info <backend>` 获取登录号信息\n"
+                                   "`/get_stranger_info <user_id> <backend>` 获取陌生人信息\n"
+                                   "`/get_friend_list <backend>` 获取好友列表\n"
+                                   "`/get_group_info <group_id> <backend>` 获取群信息\n"
+                                   "`/get_group_list <backend>` 获取群列表\n"
+                                   "`/get_group_member_info <group_id> <user_id> <backend>` 获取群成员信息\n"
+                                   "`/get_group_member_list <group_id> <backend>` 获取群成员列表\n"
+                                   "`/get_record <record_id> <backend>` 获取语音\n"
+                                   "`/get_image <image_id> <backend>` 获取图片\n"
+                                   "`/can_send_image <backend>` 检查是否可以发送图片\n"
+                                   "`/can_send_record <backend>` 检查是否可以发送语音\n"
+                                   "`/get_status <backend>` 获取运行状态\n"
+                                   "`/get_version_info <backend>` 获取版本信息")
 
 def main():
     """主函数，设置 Telegram 机器人并开始监听消息"""
@@ -223,11 +372,23 @@ def main():
     
     # 添加处理消息的处理器
     application.add_handler(CommandHandler('send', send))
-    application.add_handler(CommandHandler('delete', delete))
-    application.add_handler(CommandHandler('get', get))
-    application.add_handler(CommandHandler('forward', forward))
+    application.add_handler(CommandHandler('delete', delete_message))
+    application.add_handler(CommandHandler('get', get_message))
+    application.add_handler(CommandHandler('forward', forward_message))
+    application.add_handler(CommandHandler('get_login_info', get_login_info))
+    application.add_handler(CommandHandler('get_stranger_info', get_stranger_info))
+    application.add_handler(CommandHandler('get_friend_list', get_friend_list))
+    application.add_handler(CommandHandler('get_group_info', get_group_info))
+    application.add_handler(CommandHandler('get_group_list', get_group_list))
+    application.add_handler(CommandHandler('get_group_member_info', get_group_member_info))
+    application.add_handler(CommandHandler('get_group_member_list', get_group_member_list))
+    application.add_handler(CommandHandler('get_record', get_record))
+    application.add_handler(CommandHandler('get_image', get_image))
+    application.add_handler(CommandHandler('can_send_image', can_send_image))
+    application.add_handler(CommandHandler('can_send_record', can_send_record))
+    application.add_handler(CommandHandler('get_status', get_status))
+    application.add_handler(CommandHandler('get_version_info', get_version_info))
     application.add_handler(CommandHandler('start', start))
-    application.add_handler(CommandHandler('status', status))
     
     # 启动 Telegram 机器人
     application.run_polling()
