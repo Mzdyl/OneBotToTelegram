@@ -26,6 +26,7 @@ bot = Bot(token=TELEGRAM_BOT_TOKEN)
 # OneBot WebSocket 服务器列表
 ONEBOT_WS_URLS = config['onebot']['ws_urls'].split(',')
 
+# OneBot 机器人名称列表
 BOT_NAME = {int(key): value for key, value in config['bot_names'].items()}
 
 # 忽略的消息类型列表
