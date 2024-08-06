@@ -151,85 +151,57 @@ async def forward_message(source_target_id: str, dest_target_id: str, message_id
     except Exception as e:
         logger.error(f"转发消息时发生错误: {e}")
 
-async def handle_message(update: Update, context: CallbackContext):
-    """处理 Telegram 消息并转发到所选的 OneBot 后端"""
-    logger.info(f"收到消息: {update.message.text}")
-    logger.info(f"消息详情: {update.message}")
+async def send(update: Update, context: CallbackContext):
+    """处理 Telegram /send 命令并转发到所选的 OneBot 后端"""
+    logger.info(f"收到 /send 命令: {update.message.text}")
+    args = context.args
 
-    text = update.message.text
-    chat_id = update.message.chat_id
-
-    # 提取后端标识符、目标 chat_id 和消息内容
-    parts = text.split(maxsplit=2)
-    if len(parts) < 3:
-        await update.message.reply_text("请使用格式 `send <backend> <chat_id> <message>` 发送消息。")
+    if len(args) < 3:
+        await update.message.reply_text("请使用格式 `/send <backend> <chat_id> <message>` 发送消息。")
         return
 
-    command = parts[0].strip().lower()
-    backend = parts[1].strip()
-    target_id = parts[2].split(maxsplit=1)[0].strip()
-    message_content = parts[2].split(maxsplit=1)[1].strip() if len(parts[2].split(maxsplit=1)) > 1 else ""
+    backend = args[0].strip()
+    target_id = args[1].strip()
+    message_content = " ".join(args[2:]).strip()
 
-    # 确认后端标识符是否有效
     ws_url = ONEBOT_WS_URLS.get(backend)
     if not ws_url:
         await update.message.reply_text("无效的后端选择。请使用 `backend1` 或 `backend2`。")
         return
 
-    # 确认目标 ID 格式正确
     if not (target_id.startswith("group_") or target_id.startswith("user_")):
         await update.message.reply_text("目标 ID 必须以 'group_' 或 'user_' 开头。")
         return
 
-    if command == "send":
-        media_type = None
-        media_url = None
-        if update.message.photo:
-            media_type = "photo"
-            media_url = update.message.photo[-1].file_id
-        elif update.message.video:
-            media_type = "video"
-            media_url = update.message.video.file_id
-        elif update.message.audio:
-            media_type = "audio"
-            media_url = update.message.audio.file_id
-        elif update.message.document:
-            media_type = "document"
-            media_url = update.message.document.file_id
+    media_type = None
+    media_url = None
+    if update.message.photo:
+        media_type = "photo"
+        media_url = update.message.photo[-1].file_id
+    elif update.message.video:
+        media_type = "video"
+        media_url = update.message.video.file_id
+    elif update.message.audio:
+        media_type = "audio"
+        media_url = update.message.audio.file_id
+    elif update.message.document:
+        media_type = "document"
+        media_url = update.message.document.file_id
 
-        logger.info(f"将消息发送到 OneBot：目标 ID = {target_id}, 消息 = {message_content}, 后端 URL = {ws_url}")
-        await send_to_onebot_with_retries(target_id, message_content, media_type, media_url, ws_url)
-        await update.message.reply_text(f"消息已发送到 {target_id}")
+    logger.info(f"将消息发送到 OneBot：目标 ID = {target_id}, 消息 = {message_content}, 后端 URL = {ws_url}")
+    await send_to_onebot_with_retries(target_id, message_content, media_type, media_url, ws_url)
+    await update.message.reply_text(f"消息已发送到 {target_id}")
 
-    elif command == "delete":
-        message_id = message_content
-        await delete_message(target_id, message_id, ws_url)
-        await update.message.reply_text(f"消息 ID {message_id} 已从 {target_id} 删除。")
-
-    elif command == "get":
-        message_id = message_content
-        await get_message(target_id, message_id, ws_url)
-        await update.message.reply_text(f"已请求获取消息 ID {message_id} 从 {target_id}。")
-
-    elif command == "forward":
-        parts = message_content.split(maxsplit=1)
-        if len(parts) < 2:
-            await update.message.reply_text("请使用格式 `forward <source_chat_id> <dest_chat_id> <message_id>` 转发消息。")
-            return
-        dest_target_id = parts[0].strip()
-        message_id = parts[1].strip()
-        await forward_message(target_id, dest_target_id, message_id, ws_url)
-        await update.message.reply_text(f"消息 ID {message_id} 已从 {target_id} 转发到 {dest_target_id}。")
-
-    else:
-        await update.message.reply_text("无效的命令。请使用 `send`, `delete`, `get`, 或 `forward`。")
+async def handle_message(update: Update, context: CallbackContext):
+    """处理 Telegram 消息并转发到所选的 OneBot 后端"""
+    # Handle the /send command separately
 
 async def start(update: Update, context: CallbackContext):
     """发送欢迎消息"""
-    await update.message.reply_text("Bot 已启动。使用 `send <backend> <chat_id> <message>` 命令来发送消息。\n"
-                                   "使用 `delete <backend> <chat_id> <message_id>` 删除消息。\n"
-                                   "使用 `get <backend> <chat_id> <message_id>` 获取消息。\n"
-                                   "使用 `forward <backend> <source_chat_id> <dest_chat_id> <message_id>` 转发消息。\n"
+    await update.message.reply_text("Bot 已启动。使用 `/send <backend> <chat_id> <message>` 命令来发送消息。\n"
+                                   "使用 `/delete <backend> <chat_id> <message_id>` 删除消息。\n"
+                                   "使用 `/get <backend> <chat_id> <message_id>` 获取消息。\n"
+                                   "使用 `/forward <source_chat_id> <dest_chat_id> <message_id>` 转发消息。\n"
                                    "`/status` 查看 Bot 状态")
 
 async def status(update: Update, context: CallbackContext):
@@ -237,10 +209,10 @@ async def status(update: Update, context: CallbackContext):
     status_text = (
         "Bot 正在运行。\n"
         "支持的命令:\n"
-        "`send <backend> <chat_id> <message>` 发送消息\n"
-        "`delete <backend> <chat_id> <message_id>` 删除消息\n"
-        "`get <backend> <chat_id> <message_id>` 获取消息\n"
-        "`forward <backend> <source_chat_id> <dest_chat_id> <message_id>` 转发消息\n"
+        "`/send <backend> <chat_id> <message>` 发送消息\n"
+        "`/delete <backend> <chat_id> <message_id>` 删除消息\n"
+        "`/get <backend> <chat_id> <message_id>` 获取消息\n"
+        "`/forward <source_chat_id> <dest_chat_id> <message_id>` 转发消息\n"
         "`/status` 查看 Bot 状态"
     )
     await update.message.reply_text(status_text)
@@ -250,7 +222,10 @@ def main():
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     
     # 添加处理消息的处理器
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.add_handler(CommandHandler('send', send))
+    application.add_handler(CommandHandler('delete', delete))
+    application.add_handler(CommandHandler('get', get))
+    application.add_handler(CommandHandler('forward', forward))
     application.add_handler(CommandHandler('start', start))
     application.add_handler(CommandHandler('status', status))
     
@@ -259,4 +234,3 @@ def main():
     
 if __name__ == "__main__":
     asyncio.run(main())
-    
