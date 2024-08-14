@@ -74,7 +74,87 @@ def format_message(message: Dict[str, Any]) -> str:
             return format_private_message(message)
         elif message.get("message_type") == "group":
             return format_group_message(message)
+    elif message.get("post_type") == "notice":
+        return format_notice_message(message)
     return f"收到来自 OneBot 的消息: {json.dumps(message, indent=2)}"
+
+def format_notice_message(message: Dict[str, Any]) -> str:
+    """格式化通知消息"""
+    
+    notice_type = message.get("noticetype")
+    subtype = message.get("subtype", "")
+    time = message.get("time")
+    self_id = message.get("selfid")
+    user_id = message.get("userid", "")
+    group_id = message.get("groupid", "")
+    operator_id = message.get("operatorid", "")
+    
+    self_name = BOT_NAME[self_id]
+    # 基础消息
+    base_message = f"{self_name} 收到通知:\n"
+    
+    if notice_type == "group_upload":
+        file_info = message.get("file", {})
+        file_name = file_info.get("name", "未知文件")
+        file_size = file_info.get("size", 0)
+        return f"{base_message}群 {group_id} 中的用户 {user_id} 上传了文件：{file_name} ({file_size} 字节)"
+    
+    elif notice_type == "group_admin":
+        action = "设置" if subtype == "set" else "取消"
+        return f"{base_message}群 {group_id} 的用户 {user_id} 被{action}为管理员"
+    
+    elif notice_type == "group_decrease":
+        action = {
+            "leave": "主动退群",
+            "kick": "被踢出群",
+            "kick_me": "机器人被踢出群"
+        }.get(subtype, "离开群")
+        return f"{base_message}群 {group_id} 的用户 {user_id} {action}，操作人: {operator_id}"
+    
+    elif notice_type == "group_increase":
+        action = "管理员同意入群" if subtype == "approve" else "管理员邀请入群"
+        return f"{base_message}群 {group_id} 的用户 {user_id} 加入了群，操作人: {operator_id} ({action})"
+    
+    elif notice_type == "group_ban":
+        action = "被禁言" if subtype == "ban" else "禁言被解除"
+        duration = message.get("duration", 0)
+        return f"{base_message}群 {group_id} 的用户 {user_id} {action}，时长: {duration} 秒，操作人: {operator_id}"
+    
+    elif notice_type == "friend_add":
+        return f"{base_message}用户 {user_id} 成为了你的好友"
+    
+    elif notice_type == "group_recall":
+        message_id = message.get("messageid", "")
+        return f"{base_message}群 {group_id} 的用户 {user_id} 撤回了一条消息 (ID: {message_id})，操作人: {operator_id}"
+    
+    elif notice_type == "friend_recall":
+        message_id = message.get("messageid", "")
+        return f"{base_message}好友 {user_id} 撤回了一条消息 (ID: {message_id})"
+    
+    elif notice_type == "notify":
+        if subtype == "poke":
+            target_id = message.get("targetid", "")
+            return f"{base_message}用户 {user_id} 戳了用户 {target_id}"
+        
+        elif subtype == "inputstatus":
+            event_type = message.get("eventtype", "")
+            status_text = message.get("statustext", "")
+            decoded_status_text = status_text.encode('latin1').decode('unicode_escape')
+            return f"{base_message}用户 {user_id} 正在输入状态: {event_type} - {decoded_status_text}"
+        
+        elif subtype == "lucky_king":
+            return f"{base_message}群 {group_id} 的用户 {user_id} 成为了红包运气王"
+        
+        elif subtype == "honor":
+            honor_type = message.get("honor_type", "")
+            honor_description = {
+                "talkative": "龙王",
+                "performer": "群聊之火",
+                "emotion": "快乐源泉"
+            }.get(honor_type, "未知荣誉")
+            return f"{base_message}群 {group_id} 的用户 {user_id} 获得了荣誉称号: {honor_description}"
+        
+    return f"未处理的通知类型: {notice_type}"
 
 def format_private_message(message: Dict[str, Any]) -> str:
     """格式化私聊消息"""
